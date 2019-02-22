@@ -1,0 +1,96 @@
+--------------------------------------------------------
+--Problema solucionado utilizando Oracle SQL Developer--
+--------------------------------------------------------
+
+--PASSO 1: Criação de tabelas
+
+    --PASSO 1.1: Criamos a tabela Kart, conforme o log fornecido
+
+    CREATE TABLE Kart
+    (
+      HORA varchar(15),
+      PILOTO varchar(25),
+      NUM_VOLTA varchar(10),
+      TEMPO_VOLTA varchar(20),
+      VEL_MED_VOLTA varchar(15)
+    );
+    
+    --PASSO 1.2: Criamos a tabela Piloto para separarmos os dados mais relevantes em relação aos pilotos
+
+    CREATE TABLE Piloto
+    (
+      COD_PILOTO varchar(3) NOT NULL,
+      NOME_PILOTO varchar(25) NOT NULL
+    );
+
+    --PASSO 1.3: Criamos a tabela Piloto_Voltas para separarmos os dados mais relevantes em relação às voltas e aos pilotos
+
+    CREATE TABLE Piloto_Voltas
+    (
+      COD_PILOTO varchar(3) NOT NULL,
+      NUM_VOLTA varchar(10) NOT NULL,
+      TEMPO_VOLTA varchar(20) NOT NULL,
+      TEMPO_VOLTA_SEGUNDOS varchar(20) NOT NULL
+    );
+    
+--PASSO 2: Inserção de dados
+
+    --PASSO 2.1: Neste passo é importante manter em mente que o problema foi desenvolvido utilizando a ferramenta Oracle SQL Developer. O arquivo de log fornecido
+                 --foi colocado em uma planilha do excel, importado utilizando comandos da própria ferramenta e não via código SQL.
+                 --Para realizar a importação, basta clicar com o botão direito sobre a coluna Kart > Import Data e seguir os passos. Estarei fornecendo a planilha no Github.
+                 --É importante notar que este passo é o mais importante. O output da linha SELECT * FROM Kart deverá ser, obrigatoriamente, 23 linhas (a mesma quantidade do log fornecido).
+
+    --PASSO 2.2: Inserimos os dados mais relevantes em relação aos pilotos
+
+    INSERT INTO Piloto
+    SELECT DISTINCT
+    substr(PILOTO,1,3),
+    substr(PILOTO,7,21)
+    FROM Kart;
+    
+    --PASSO 2.3: Inserimos os dados da tabela Kart mais relevantes em relação às voltas e aos pilotos
+
+    INSERT INTO Piloto_Voltas
+    SELECT 
+    substr(PILOTO,1,3),
+    NUM_VOLTA,
+    TEMPO_VOLTA,
+    SUM(to_number(substr(TEMPO_VOLTA,0,1)) * 60 + to_number(substr(TEMPO_VOLTA,3),'00.99999')) --Convertemos os valores da coluna TEMPO_VOLTA para segundos
+    FROM Kart
+    GROUP BY substr(PILOTO,1,3), NUM_VOLTA, TEMPO_VOLTA;
+    
+--PASSO 3: Acesso e cruzamento das informações
+
+    --PASSO 3.1: Realizamos um Inner Join para cruzarmos as tabelas Piloto com Piloto_Voltas
+
+    SELECT
+    ROW_NUMBER() OVER(ORDER BY SUM(Piloto_Voltas.TEMPO_VOLTA_SEGUNDOS) ASC) AS POSICAO_CHEGADA, --Adicionamos, de forma dinâmica, uma coluna que incrementa de 1 em 1 para controlarmos a posição de chegada
+    Piloto.COD_PILOTO AS COD,
+    Piloto.NOME_PILOTO AS NOME_PILOTO,
+    MAX(Piloto_Voltas.NUM_VOLTA) AS QTD_VOLTAS,
+    SUM(Piloto_Voltas.TEMPO_VOLTA_SEGUNDOS) AS TEMPO_TOTAL_PROVA_EM_SEGUNDOS
+    FROM Piloto
+    INNER JOIN Piloto_Voltas
+    ON Piloto.COD_PILOTO=Piloto_Voltas.COD_PILOTO
+    GROUP BY Piloto.COD_PILOTO, Piloto.NOME_PILOTO
+    ORDER BY TEMPO_TOTAL_PROVA_EM_SEGUNDOS ASC;
+
+
+--QUESTÕES BÔNUS
+
+    --BÔNUS 1: Descobrir a melhor volta de cada piloto
+    
+    SELECT
+    Piloto.COD_PILOTO AS COD,
+    Piloto.NOME_PILOTO AS NOME,
+    MIN(Piloto_Voltas.TEMPO_VOLTA) AS MELHOR_VOLTA
+    FROM Piloto, Piloto_Voltas
+    WHERE Piloto.COD_PILOTO=Piloto_Voltas.COD_PILOTO
+    GROUP BY Piloto.COD_PILOTO, Piloto.NOME_PILOTO
+    ORDER BY MELHOR_VOLTA ASC;
+
+    --BÔNUS 2: Descobrir a melhor volta da corrida
+
+    SELECT
+    MIN(TEMPO_VOLTA) AS MELHOR_VOLTA_CORRIDA
+    FROM Piloto_Voltas;
